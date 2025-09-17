@@ -81,6 +81,70 @@ def get_mnist_datasets(data_dir, batch_size, test_samples=10000, seed=None):
         # Restore the original SSL context
         ssl._create_default_https_context = old_context
 
+def get_fashionMnist_datasets(data_dir, batch_size, test_samples=10000, seed=None):
+    """
+    Loads FashionMNIST datasets and returns training and test DataLoaders.
+    
+    Parameters:
+        data_dir (str): Directory to store/download the FashionMNIST data.
+        batch_size (int): Batch size for the DataLoaders.
+        test_samples (int): Number of samples to include in the test set.
+        seed (int, optional): Random seed for reproducibility.
+    
+    Returns:
+        tuple: (train_loader, test_loader)
+    """
+
+    # Create a secure SSL context using certifi. Otherwise we'll get a
+    # [SSL: CERTIFICATE_VERIFY_FAILED] error.
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    old_context = ssl._create_default_https_context
+    ssl._create_default_https_context = lambda: ssl_context
+
+    try:
+        if seed is not None:
+            torch.manual_seed(seed)  # Set the global seed for reproducibility
+
+        # Define a transform to normalize the data
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+
+        # Try to download and load the training and test datasets
+        try:
+            train_dataset = datasets.FashionMNIST(
+                data_dir, train=True, download=True, transform=transform
+            )
+            test_dataset = datasets.FashionMNIST(
+                data_dir, train=False, download=True, transform=transform
+            )
+        except Exception as e: 
+            raise RuntimeError(
+                e + " Could not install FashionMNIST dataset automatically " + 
+                "You'll need to download it manually from torchvision.datasets.FasionMNIST()"
+            )
+ 
+        # Limit the number of test samples if necessary
+        if test_samples < len(test_dataset):
+            test_dataset, _ = random_split(
+                test_dataset,
+                [test_samples, len(test_dataset) - test_samples]
+            )
+
+        # Create DataLoaders for training and test datasets
+        train_loader = DataLoader(
+            train_dataset, batch_size=batch_size, shuffle=True
+        )
+        test_loader = DataLoader(
+            test_dataset, batch_size=batch_size
+        )
+
+        return train_loader, test_loader
+        
+    finally:
+        # Restore the original SSL context
+        ssl._create_default_https_context = old_context
+
 
 def get_cifar_datasets(data_dir, batch_size, test_samples=10000, seed=None):
     """
@@ -323,6 +387,18 @@ def train_on_mnist(
         weight_decay, device, save_path
     )
 
+def train_on_fashionMnist(
+    model, data_dir="./data", epochs=200, batch_size=128, lr=0.1,
+    momentum=0.9, weight_decay=5e-4, device="cpu", save_path=None
+):
+    """
+    Train a model on the fashionMNIST dataset.
+    """
+    train_loader, test_loader = get_fashionMnist_datasets(data_dir, batch_size)
+    train(
+        model, train_loader, test_loader, epochs, lr, momentum,
+        weight_decay, device, save_path
+    )
 
 def train_on_cifar(
     model, data_dir="./data", epochs=200, batch_size=128, lr=0.1,
