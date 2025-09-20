@@ -67,7 +67,10 @@ class ResNet(on.Module):
         self.in_chans = num_chans[0]
         self.last_chans = num_chans[-1]
 
-        self.conv1 = on.Conv2d(3, self.in_chans, **conv1_params, bias=False)
+        if dataset == 'mnist' or dataset == 'fashionmnist':
+            self.conv1 = on.Conv2d(1, self.in_chans, **conv1_params, bias=False)
+        else:
+            self.conv1 = on.Conv2d(3, self.in_chans, **conv1_params, bias=False)
         self.bn1 = on.BatchNorm2d(self.in_chans)
         self.act = on.ReLU()
 
@@ -102,7 +105,14 @@ class ResNet(on.Module):
         out = self.flatten(out)
         return self.linear(out)
     
+# FashionMNIST / MNIST ResNets #
+def ResNetF(dataset='fashionmnist'):
+    conv1_params, num_classes = get_resnet_config(dataset)
+    return ResNet(dataset, BasicBlock, [1,1,1], [16,32,64], conv1_params, num_classes)
 
+def ResNetM(dataset='mnist'):
+    conv1_params, num_classes = get_resnet_config(dataset)
+    return ResNet(dataset, BasicBlock, [1,1,1], [16,32,64], conv1_params, num_classes)
 ################################
 # CIFAR-10 / CIFAR-100 ResNets #
 ################################
@@ -162,6 +172,8 @@ def get_resnet_config(dataset):
         "cifar100": {"kernel_size": 3, "stride": 1, "padding": 1, "num_classes": 100},
         "tiny": {"kernel_size": 7, "stride": 1, "padding": 3, "num_classes": 200},
         "imagenet": {"kernel_size": 7, "stride": 2, "padding": 3, "num_classes": 1000},
+        "mnist": {"kernel_size": 5, "stride": 1, "padding": 1, "num_classes": 10},
+        "fashionmnist": {"kernel_size": 5, "stride": 1, "padding": 1, "num_classes": 10},
     }
 
     if dataset not in configs:

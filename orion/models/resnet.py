@@ -1,6 +1,6 @@
 import torch.nn as nn
 import orion.nn as on
-
+import torch.nn.functional as F
 
 class BasicBlock(on.Module):
     expansion = 1
@@ -67,7 +67,10 @@ class ResNet(on.Module):
         self.in_chans = num_chans[0]
         self.last_chans = num_chans[-1]
 
-        self.conv1 = on.Conv2d(3, self.in_chans, **conv1_params, bias=False)
+        if dataset == 'mnist' or dataset == 'fashionmnist':
+            self.conv1 = on.Conv2d(1, self.in_chans, **conv1_params, bias=False)
+        else:
+            self.conv1 = on.Conv2d(3, self.in_chans, **conv1_params, bias=False)
         self.bn1 = on.BatchNorm2d(self.in_chans)
         self.act = on.ReLU()
 
@@ -101,8 +104,47 @@ class ResNet(on.Module):
         out = self.avgpool(out)
         out = self.flatten(out)
         return self.linear(out)
-    
 
+class BasicResNetStyle(on.Module):
+    def __init__(self, num_classes=10):
+        super().__init__()
+        # Input: [batch_size, 1, 28, 28]
+        self.conv1 = on.Conv2d(1, 32, kernel_size=3)  # -> [batch, 32, 26, 26]
+        self.relu1 = on.ReLU()
+        self.pool1 = on.AvgPool2d(2)  # -> [batch, 32, 13, 13]
+
+        self.conv2 = on.Conv2d(32, 64, kernel_size=3) # -> [batch, 64, 11, 11]
+        self.relu2 = on.ReLU()
+        self.pool2 = on.AvgPool2d(2)  # -> [batch, 64, 5, 5]
+
+        self.flatten = on.Flatten()
+        self.fc1 = on.Linear(64 * 5 * 5, 128)
+        self.relu3 = on.ReLU()
+        self.fc2 = on.Linear(128, num_classes)
+
+    def forward(self, x):
+        # conv1 -> relu -> pool
+        x = self.pool1(self.relu1(self.conv1(x)))
+        # conv2 -> relu -> pool
+        x = self.pool2(self.relu2(self.conv2(x)))
+        # flatten + fully connected
+        x = self.flatten(x)
+        x = self.relu3(self.fc1(x))
+        x = self.fc2(x)
+        return F.log_softmax(x, dim=1)
+
+# FashionMNIST / MNIST ResNets #
+# def ResNetF(dataset='fashionmnist'):
+#     conv1_params, num_classes = get_resnet_config(dataset)
+#     return ResNet(dataset, BasicBlock, [1,1,1], [16,32,64], conv1_params, num_classes)
+
+def ResNetF(dataset='fashionmnist'):
+    # conv1_params, num_classes = get_resnet_config(dataset)
+    return BasicResNetStyle(num_classes=10)
+
+def ResNetM(dataset='mnist'):
+    conv1_params, num_classes = get_resnet_config(dataset)
+    return ResNet(dataset, BasicBlock, [1,1,1], [16,32,64], conv1_params, num_classes)
 ################################
 # CIFAR-10 / CIFAR-100 ResNets #
 ################################
@@ -162,6 +204,8 @@ def get_resnet_config(dataset):
         "cifar100": {"kernel_size": 3, "stride": 1, "padding": 1, "num_classes": 100},
         "tiny": {"kernel_size": 7, "stride": 1, "padding": 3, "num_classes": 200},
         "imagenet": {"kernel_size": 7, "stride": 2, "padding": 3, "num_classes": 1000},
+        "mnist": {"kernel_size": 3, "stride": 1, "padding": 1, "num_classes": 10},
+        "fashionmnist": {"kernel_size": 3, "stride": 1, "padding": 1, "num_classes": 10},
     }
 
     if dataset not in configs:

@@ -16,7 +16,7 @@ torch.manual_seed(42)
 
 # Initialize the Orion scheme, model, and data
 scheme = orion.init_scheme("../configs/mlp.yml")
-trainloader, testloader = get_fashionMnist_datasets(data_dir="../data", batch_size=32)
+trainloader, testloader = get_fashionMnist_datasets(data_dir="../data", batch_size=1)
 net = models.MLP()
 
 # Train model (optional)

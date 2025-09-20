@@ -5,8 +5,11 @@ import orion
 import orion.models as models
 from orion.core.utils import (
     get_cifar_datasets,
+    get_fashionMnist_datasets,
     mae, 
-    train_on_cifar
+    train_on_cifar,
+    get_fashionMnist_datasets,
+    train_on_fashionMnist
 )
 
 # Set seed for reproducibility
@@ -14,48 +17,55 @@ torch.manual_seed(42)
 
 # Initialize the Orion scheme, model, and data
 scheme = orion.init_scheme("../configs/resnet.yml")
-trainloader, testloader = get_cifar_datasets(data_dir="../data", batch_size=1)
-net = models.ResNet20()
-
+# trainloader, testloader = get_cifar_datasets(data_dir="../data", batch_size=32)
+trainloader, testloader = get_fashionMnist_datasets(data_dir="../data", batch_size=1)
+net = models.ResNetF()
 # Train model (optional)
-# device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 # train_on_cifar(net, data_dir="../data", epochs=1, device=device)
+train_on_fashionMnist(net, data_dir="../data", epochs=1, device=device)
 
-# Get a test batch to pass through our network
-inp, _ = next(iter(testloader))
-
-# Run cleartext inference
-net.eval()
-out_clear = net(inp)
-
-# Prepare for FHE inference. 
-# Some polynomial activation functions require knowing the range of possible 
-# input values. We'll estimate these ranges using training set statistics, 
-# adjusted to be wider by a tolerance factor (= margin).
-orion.fit(net, inp)
+# --- Prepare for FHE ---
+# Estimate input ranges and compile model for FHE
+print("\nFitting and compiling for FHE...")
+example_batch, _ = next(iter(trainloader))
+orion.fit(net, example_batch)  
 input_level = orion.compile(net)
 
-# Encode and encrypt the input vector 
-vec_ptxt = orion.encode(inp, input_level)
-vec_ctxt = orion.encrypt(vec_ptxt)
-net.he()  # Switch to FHE mode
+# Switch network to FHE mode
+net.he()
 
-# Run FHE inference
-print("\nStarting FHE inference", flush=True)
-start = time.time()
-out_ctxt = net(vec_ctxt)
-end = time.time()
+# --- FHE evaluation ---
+print("\nStarting FHE inference on full test set...")
+correct_fhe = 0
+total = 0
+start_total = time.time()
 
-# Get the FHE results and decrypt + decode.
-out_ptxt = out_ctxt.decrypt()
-out_fhe = out_ptxt.decode()
+for inputs, targets in testloader:
+    # Encode + encrypt batch
+    vec_ptxt = orion.encode(inputs, input_level)
+    vec_ctxt = orion.encrypt(vec_ptxt)
 
-# Compare the cleartext and FHE results.
-print()
-print(out_clear)
-print(out_fhe)
+    # Run inference in FHE
+    start = time.time()
+    out_ctxt = net(vec_ctxt)
+    end = time.time()
 
-dist = mae(out_clear, out_fhe)
-print(f"\nMAE: {dist:.4f}")
-print(f"Precision: {-math.log2(dist):.4f}")
-print(f"Runtime: {end-start:.4f} secs.\n")
+    # Decrypt + decode
+    out_ptxt = out_ctxt.decrypt()
+    outputs = out_ptxt.decode()
+
+    # Convert to tensor for accuracy calculation
+    if not isinstance(outputs, torch.Tensor):
+        outputs = torch.tensor(outputs)
+
+    _, predicted = outputs.max(1)
+    total += targets.size(0)
+    correct_fhe += predicted.eq(targets).sum().item()
+
+    print(f"Batch runtime: {end-start:.4f} secs")
+
+end_total = time.time()
+acc_fhe = 100. * correct_fhe / total
+print(f"\nFHE accuracy: {acc_fhe:.2f}%")
+print(f"Total FHE runtime: {end_total - start_total:.2f} secs")

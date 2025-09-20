@@ -388,7 +388,7 @@ def train_on_mnist(
     )
 
 def train_on_fashionMnist(
-    model, data_dir="./data", epochs=200, batch_size=128, lr=0.1,
+    model, data_dir="./data", epochs=200, batch_size=32, lr=0.1,
     momentum=0.9, weight_decay=5e-4, device="cpu", save_path=None
 ):
     """
@@ -534,7 +534,9 @@ def test_epoch(model, test_loader, criterion, device):
                 "Acc": f"{100. * correct / total:.3f}% ({correct}/{total})"
             })
 
-    return 100. * correct / total
+    acc = 100. * correct / total
+    print(f"\nTest Accuracy: {acc:.3f}%")
+    return acc
 
 def mae(tensor1, tensor2):
     if tensor1.shape != tensor2.shape:
