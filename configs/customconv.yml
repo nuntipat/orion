@@ -1,0 +1,40 @@
+comment: Config for LoLA from Figure 3 of https://arxiv.org/pdf/1812.10659
+
+# ckks_params: 
+#   LogN: 13
+#   LogQ: [29, 26, 26, 26, 26, 26]
+#   LogP: [29, 29]
+#   LogScale: 26
+#   H: 8192
+#   RingType: ConjugateInvariant
+
+# ckks_params: 
+#   LogN: 14
+#   LogQ: [55, 55, 55, 54, 54, 54]
+#   LogP: [56, 55]
+#   LogScale: 26
+#   H: 8192
+#   RingType: ConjugateInvariant
+
+ckks_params:
+  LogN: 16
+  LogQ: [55, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40]
+  LogP: [61, 61, 61]
+  LogScale: 40
+  H: 192
+  RingType: standard
+
+boot_params:
+  LogP: [61, 61, 61, 61, 61, 61, 61, 61]
+
+orion:
+  margin: 2 # >= 1
+  embedding_method: hybrid # [hybrid, square]
+  backend: lattigo # [lattigo, openfhe, heaan]
+
+  fuse_modules: true
+  debug: false
+
+  diags_path: ../data/diagonals.h5 # "path/to/diags" | ""
+  keys_path: ../data/keys.h5 # "path/to/keys" | ""
+  io_mode: none # "load" | "save" | "none"
